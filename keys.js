@@ -754,7 +754,7 @@ function drawHex(p, c) { /* Point, color */
   settings.context.closePath();
   settings.context.strokeStyle = 'black';
   settings.context.lineWidth = 5;
-  settings.context.shadowBlur = 15;
+  settings.context.shadowBlur = 7;
   settings.context.shadowColor = 'black';
   settings.context.shadowOffsetX = 0;
   settings.context.shadowOffsetY = 0;
@@ -838,13 +838,19 @@ function centsToColor(cents, pressed) {
     //convert the hex to rgb
     returnColor = hex2rgb(returnColor);
 
+      
     //darken for pressed key
     if (pressed) {
-      returnColor[0] -= 90;
-      returnColor[1] -= 90;
+         return rgb(returnColor[0], returnColor[1], returnColor[2]);
     }
-
-    return rgb(returnColor[0], returnColor[1], returnColor[2]);
+    else {
+         meanColor = (returnColor[0] + returnColor[1] + returnColor[2]) / 3.0;
+         // The following zeros can be tuned for more colorfull or black and white
+         // and the total brightness
+         return rgb(meanColor - 0 + 0 * returnColor[0] / 1.5,
+                    meanColor - 0 + 0 * returnColor[1] / 1.5,
+                    meanColor - 0 + 0 * returnColor[2] / 1.5);
+    }
 
   }
 
