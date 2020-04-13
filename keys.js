@@ -1,25 +1,26 @@
 //check\set preset
+var SHIFT_KEY= 0;
 var init_keyboard_onload = true;
 if(decodeURIComponent(window.location.search) == '')
 {
   init_keyboard_onload = false;
 }
 
-checkPreset(16);
+checkPreset(1);
 // fill in form
 document.getElementById('settingsForm').onsubmit = goKeyboard;
 
 var getData = new QueryData(location.search, true);
-document.getElementById("fundamental").value = ("fundamental" in getData) ? getData.fundamental : 263.09212;
-document.getElementById("rSteps").value = ("right" in getData) ? getData.right : 5;
-document.getElementById("urSteps").value = ("upright" in getData) ? getData.upright : 2;
-document.getElementById("hexSize").value = ("size" in getData) ? getData.size : 50;
-document.getElementById("rotation").value = ("rotation" in getData) ? getData.rotation : 343.897886248;
-document.getElementById("instrument").value = ("instrument" in getData) ? getData.instrument : "organ";
+document.getElementById("fundamental").value = ("fundamental" in getData) ? getData.fundamental : 261.6255653;
+document.getElementById("rSteps").value = ("right" in getData) ? getData.right : 2;
+document.getElementById("urSteps").value = ("upright" in getData) ? getData.upright : 1;
+document.getElementById("hexSize").value = ("size" in getData) ? getData.size : 45;
+document.getElementById("rotation").value = ("rotation" in getData) ? getData.rotation : 360.0;
+document.getElementById("instrument").value = ("instrument" in getData) ? getData.instrument : "sine";
 document.getElementById("enum").checked = ("enum" in getData) ? JSON.parse(getData["enum"]) : false;
-document.getElementById("equivSteps").value = ("equivSteps" in getData) ? getData.equivSteps : 31;
+document.getElementById("equivSteps").value = ("equivSteps" in getData) ? getData.equivSteps : 12;
 document.getElementById("spectrum_colors").checked = ("spectrum_colors" in getData) ? JSON.parse(getData.spectrum_colors) : false;
-document.getElementById("fundamental_color").value = ("fundamental_color" in getData) ? getData.fundamental_color : '#55ff55';
+document.getElementById("fundamental_color").value = ("fundamental_color" in getData) ? getData.fundamental_color : '#00FF00';
 document.getElementById("no_labels").checked = ("no_labels" in getData) ? JSON.parse(getData.no_labels) : false;
 
 
@@ -317,6 +318,18 @@ function goKeyboard() {
   settings.sampleBuffer = [undefined, undefined, undefined];
   var instrumentOption = document.getElementById("instrument").selectedIndex;
   var instruments = [{
+      fileName: "sine",
+      fade: 0.1
+    }, {
+      fileName: "triangle",
+      fade: 0.1
+    }, {
+      fileName: "trapezium",
+      fade: 0.1
+    }, {
+      fileName: "square",
+      fade: 0.1
+    }, {
       fileName: "piano",
       fade: 0.1
     }, {
@@ -389,7 +402,7 @@ function goKeyboard() {
 
   ];
 
-  //console.log(instruments[instrumentOption]);
+  console.log("instruments: " + instruments[instrumentOption]);
 
   loadSample(instruments[instrumentOption].fileName, 0);
   settings.sampleFadeout = instruments[instrumentOption].fade;
@@ -417,6 +430,7 @@ function goKeyboard() {
       48 : new Point(4, -2), // 0
       189 : new Point(5, -2), // -
       187 : new Point(6, -2), // =
+      127 : new Point(7, -2), // /
 
       81 : new Point(-5, -1), // Q
       87 : new Point(-4, -1), // W
@@ -436,7 +450,7 @@ function goKeyboard() {
       68 : new Point(-3, 0), // D
       70 : new Point(-2, 0), // F
       71 : new Point(-1, 0), // G
-      72 : new Point(0, 0), // H
+      72 : new Point(0, 0),// H
       74 : new Point(1, 0), // J
       75 : new Point(2, 0), // K
       76 : new Point(3, 0), // L
@@ -554,11 +568,20 @@ function onKeyDown(e) {
       && (e.keyCode in settings.keyCodeToCoords)
       && settings.pressedKeys.indexOf(e.keyCode) == -1) {
     settings.pressedKeys.push(e.keyCode);
+    if (e.shiftKey) {
+        SHIFT_KEY=6
+    } else {
+        SHIFT_KEY=0
+      console.log("NOT shift");
+    }
+
     var coords = settings.keyCodeToCoords[e.keyCode];
+    a = new Point (coords.x - SHIFT_KEY, coords.y);
     var hex = new ActiveHex(coords);
     settings.activeHexObjects.push(hex);
-    var cents = hexCoordsToCents(coords);
-    drawHex(coords, centsToColor(cents, true));
+    var cents = hexCoordsToCents(a);
+    drawHex(a, centsToColor(cents, true));
+    console.log(cents);
     hex.noteOn(cents);
   }
 }
@@ -576,7 +599,8 @@ function onKeyUp(e) {
     if (keyIndex != -1) {
       settings.pressedKeys.splice(keyIndex, 1);
       var coords = settings.keyCodeToCoords[e.keyCode];
-      drawHex(coords, centsToColor(hexCoordsToCents(coords), false));
+  a = new Point (coords.x - SHIFT_KEY, coords.y);
+      drawHex(a, centsToColor(hexCoordsToCents(a), false));
       var hexIndex = settings.activeHexObjects.findIndex(function(hex) {
         return coords.equals(hex.coords);
       });
@@ -820,59 +844,95 @@ function drawHex(p, c) { /* Point, color */
 }
 
 function centsToColor(cents, pressed) {
-  var returnColor;
-  if (!settings.spectrum_colors) {
-    if (typeof(settings.keycolors[global_pressed_interval]) === 'undefined') {
-      returnColor = "#EDEDE4";
-    } else {
-      returnColor = settings.keycolors[global_pressed_interval];
+
+    var returnColor;
+  
+    if (!settings.spectrum_colors) {
+        if (typeof(settings.keycolors[global_pressed_interval]) === 'undefined') {
+            returnColor = "#EDEDE4";
+        }
+        else {
+            returnColor = settings.keycolors[global_pressed_interval];
+        }
+  
+        var oldColor = returnColor;
+  
+        //convert color name to hex
+        returnColor = nameToHex(returnColor);
+  
+        current_text_color = returnColor;
+  
+        //convert the hex to rgb
+        returnColor = hex2rgb(returnColor);
+  
+        //darken for pressed key
+        if (pressed) {
+             return rgb(returnColor[0], returnColor[1], returnColor[2]);
+        }
+        else {
+             meanColor = (returnColor[0] + returnColor[1] + returnColor[2]) / 3.0;
+             // The following zeros can be tuned for more colorfull or black and white
+             // and the total brightness
+             return rgb(meanColor - 0 + 0 * returnColor[0] / 1.5,
+                        meanColor - 0 + 0 * returnColor[1] / 1.5,
+                        meanColor - 0 + 0 * returnColor[2] / 1.5);
+        }
+  
     }
+  
+    var fcolor = hex2rgb("#" + settings.fundamental_color);
+    fcolor = rgb2hsv(fcolor[0], fcolor[1], fcolor[2]);
+  
+    var h = fcolor.h / 360;
+    var s = fcolor.s / 100;
+    var v = fcolor.v / 100;
+    //var h = 145/360; // green
 
-    var oldColor = returnColor;
+    var reduced = (cents / 1200) % 1;
 
-    //convert color name to hex
-    returnColor = nameToHex(returnColor);
 
-    current_text_color = returnColor;
+    //if (reduced < 0) reduced += 1;
+    h = (reduced + h) % .916666666666;
+  
+    v = 0.5;
+    v = (pressed) ? v * 2 : v;
+  
+    var factor = Math.abs((cents / 1200) % 1);
+console.log("cents: " + cents);
+console.log("reduced: " + reduced);
+//console.log("factor: " + factor);
+    var hue = h;
+    //var hue = factor * 360/360 + 120/360;
+    if (hue > 1 ) { hue = 1 - hue; }
+console.log("h: " + h)
+console.log("hue: " + hue)
+    returnColor = hsl2rgb(hue, 1, v);
+    console.log(returnColor);
 
-    //convert the hex to rgb
-    returnColor = hex2rgb(returnColor);
+    //returnColor = HSVtoRGB(h, s, v);
+    //console.log(returnColor);
+console.log("-------------------");
+  
+    //setup text color
+    var tcolor = HSVtoRGB2(h, s, v);
+    current_text_color = rgbToHex(tcolor.red, tcolor.green, tcolor.blue);
+    /*
+        if (cents == 0   )      { returnColor = hex2rgb("00FF00"); }
+        else if (cents == 100 ) { returnColor = hex2rgb("00FF80"); }
+        else if (cents == 200 ) { returnColor = hex2rgb("00FFFF"); }
+        else if (cents == 300 ) { returnColor = hex2rgb("0080FF"); }
+        else if (cents == 400 ) { returnColor = hex2rgb("0000FF"); }
+        else if (cents == 500 ) { returnColor = hex2rgb("AA00FF"); }
+        else if (cents == 600 ) { returnColor = hex2rgb("FF00FF"); }
+        else if (cents == 700 ) { returnColor = hex2rgb("FF0000"); }
+        else if (cents == 800 ) { returnColor = hex2rgb("FF5500"); }
+        else if (cents == 900 ) { returnColor = hex2rgb("FFAA00"); }
+        else if (cents == 1000) { returnColor = hex2rgb("FFFF00"); }
+        else if (cents == 1100) { returnColor = hex2rgb("AAFF00"); }
 
-      
-    //darken for pressed key
-    if (pressed) {
-         return rgb(returnColor[0], returnColor[1], returnColor[2]);
-    }
-    else {
-         meanColor = (returnColor[0] + returnColor[1] + returnColor[2]) / 3.0;
-         // The following zeros can be tuned for more colorfull or black and white
-         // and the total brightness
-         return rgb(meanColor - 0 + 0 * returnColor[0] / 1.5,
-                    meanColor - 0 + 0 * returnColor[1] / 1.5,
-                    meanColor - 0 + 0 * returnColor[2] / 1.5);
-    }
-
-  }
-
-  var fcolor = hex2rgb("#" + settings.fundamental_color);
-  fcolor = rgb2hsv(fcolor[0], fcolor[1], fcolor[2]);
-
-  var h = fcolor.h / 360;
-  var s = fcolor.s / 100;
-  var v = fcolor.v / 100;
-  //var h = 145/360; // green
-  var reduced = (cents / 1200) % 1;
-  if (reduced < 0) reduced += 1;
-  h = (reduced + h) % 1;
-
-  v = (pressed) ? v - (v / 2) : v;
-
-  returnColor = HSVtoRGB(h, s, v);
-
-  //setup text color
-  var tcolor = HSVtoRGB2(h, s, v);
-  current_text_color = rgbToHex(tcolor.red, tcolor.green, tcolor.blue);
-  return returnColor;
+    */
+    //return rgb(returnColor[0], returnColor[1], returnColor[2]);
+    return returnColor;
 }
 
 function roundTowardZero(val) {
@@ -1004,6 +1064,7 @@ function ActiveHex(coords) {
 
 ActiveHex.prototype.noteOn = function(cents) {
   var freq = settings.fundamental * Math.pow(2, cents / 1200);
+  console.log(cents + "freq: " +  freq);
   var source = settings.audioContext.createBufferSource(); // creates a sound source
   // Choose sample
   var sampleFreq = 110;
@@ -1023,9 +1084,13 @@ ActiveHex.prototype.noteOn = function(cents) {
     }
   }
 
-  if (!(settings.sampleBuffer[sampleNumber])) return; // Sample not yet loaded
+  if (!(settings.sampleBuffer[sampleNumber])) {
+      console.log("Sample not yet loaded");
+      return; // Sample not yet loaded
+  }
 
   source.buffer = settings.sampleBuffer[sampleNumber]; // tell the source which sound to play
+
   source.playbackRate.value = freq / sampleFreq;
   // Create a gain node.
   var gainNode = settings.audioContext.createGain();
@@ -1075,8 +1140,9 @@ function loadSample(name, iteration) {
   var sampleFreqs = ["110", "220", "440", "880"];
   //for (var i = 0; i < 4; ++i) {
   var request = new XMLHttpRequest();
+  console.log("url " + url);
   var url = 'sounds/' + name + sampleFreqs[iteration] + '.mp3';
-  //console.log(iteration);
+  console.log(iteration);
   request.open('GET', url, true);
   request.responseType = 'arraybuffer';
 
@@ -1277,6 +1343,42 @@ function hex2rgb(col) {
   g = parseInt(g, 16);
   b = parseInt(b, 16);
   return [r, g, b];
+}
+
+/**
+ * Converts an HSL color value to RGB. Conversion formula
+ * adapted from http://en.wikipedia.org/wiki/HSL_color_space.
+ * Assumes h, s, and l are contained in the set [0, 1] and
+ * returns r, g, and b in the set [0, 255].
+ *
+ * @param   {number}  h       The hue
+ * @param   {number}  s       The saturation
+ * @param   {number}  l       The lightness
+ * @return  {Array}           The RGB representation
+ */
+function hsl2rgb(h, s, l){
+    var r, g, b;
+
+    if(s == 0){
+        r = g = b = l; // achromatic
+    }else{
+        var hue2rgb = function hue2rgb(p, q, t){
+            if(t < 0) t += 1;
+            if(t > 1) t -= 1;
+            if(t < 1/6) return p + (q - p) * 6 * t;
+            if(t < 1/2) return q;
+            if(t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+            return p;
+        }
+
+        var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        var p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+    }
+
+    return rgb(Math.round(r * 255), Math.round(g * 255), Math.round(b * 255));
 }
 
 function rgb2hsv(r1, g1, b1) {
